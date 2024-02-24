@@ -18,7 +18,8 @@ class SolverParameters:
                  number_of_parallel_points: int = 1,
                  async_scheme: bool = False,
                  timeout: int = -1,
-                 proportion_of_global_iterations: float = 0.95
+                 proportion_of_global_iterations: float = 0.95,
+                 url_db: str | None = None
                  ):
         r"""
         Constructor of SolverParameters class
@@ -57,6 +58,7 @@ class SolverParameters:
         self.number_of_parallel_points = number_of_parallel_points
         self.async_scheme = async_scheme
         self.timeout = timeout
+        self.url_db = url_db
 
     def to_string(self) -> str:
         """

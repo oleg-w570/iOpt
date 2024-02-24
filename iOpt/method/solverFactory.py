@@ -10,6 +10,8 @@ from iOpt.method.optim_task import OptimizationTask
 from iOpt.method.parallel_process import ParallelProcess
 from iOpt.method.process import Process
 from iOpt.method.search_data import SearchData
+from iOpt.method.search_db import SearchDB
+from iOpt.problem import Problem
 from iOpt.solver_parametrs import SolverParameters
 
 
@@ -73,3 +75,10 @@ class SolverFactory:
             return ParallelProcess(parameters=parameters, task=task, evolvent=evolvent,
                                    search_data=search_data, method=method, listeners=listeners)
 
+    @staticmethod
+    def create_search_data(parameters: SolverParameters,
+                           problem: Problem):
+        if parameters.url_db is None:
+            return SearchData(problem)
+        if isinstance(parameters.url_db, str):
+            return SearchDB(parameters.url_db, problem)
