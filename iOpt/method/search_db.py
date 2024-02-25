@@ -12,11 +12,6 @@ from iOpt.method.search_data import SearchData, SearchDataItem
 from iOpt.problem import Problem
 
 
-def item_to_model(data_item: SearchDataItem) -> SearchDataModel:
-    data_model = SearchDataModel(x=data_item.get_x(), z=data_item.get_z())
-    return data_model
-
-
 class SearchDB(SearchData):
     def __init__(self, url: str, problem: Problem, maxlen: int = None):
         super().__init__(problem, maxlen)
