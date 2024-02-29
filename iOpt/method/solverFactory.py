@@ -2,6 +2,7 @@ from typing import List
 
 from iOpt.evolvent.evolvent import Evolvent
 from iOpt.method.async_parallel_process import AsyncParallelProcess
+from iOpt.method.db_process import DBProcess
 from iOpt.method.index_method import IndexMethod
 from iOpt.method.listener import Listener
 from iOpt.method.method import Method
@@ -50,7 +51,7 @@ class SolverFactory:
     def create_process(parameters: SolverParameters,
                        task: OptimizationTask,
                        evolvent: Evolvent,
-                       search_data: SearchData,
+                       search_data: SearchData | SearchDB,
                        method: Method,
                        listeners: List[Listener]) -> Process:
         """
@@ -65,7 +66,10 @@ class SolverFactory:
 
         :return: created process.
         """
-        if parameters.number_of_parallel_points == 1:
+        if isinstance(parameters.url_db, str):
+            return DBProcess(parameters=parameters, task=task, evolvent=evolvent,
+                             search_data=search_data, method=method, listeners=listeners)
+        elif parameters.number_of_parallel_points == 1:
             return Process(parameters=parameters, task=task, evolvent=evolvent,
                            search_data=search_data, method=method, listeners=listeners)
         elif parameters.async_scheme:
@@ -78,7 +82,7 @@ class SolverFactory:
     @staticmethod
     def create_search_data(parameters: SolverParameters,
                            problem: Problem):
-        if parameters.url_db is None:
-            return SearchData(problem)
         if isinstance(parameters.url_db, str):
             return SearchDB(parameters.url_db, problem)
+        else:
+            return SearchData(problem)
