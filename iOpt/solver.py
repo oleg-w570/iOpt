@@ -38,7 +38,7 @@ class Solver:
 
         self.__listeners: List[Listener] = []
 
-        self.search_data = SolverFactory.create_search_data(parameters, problem)
+        self.search_data = SearchData(problem)
         self.evolvent = Evolvent(problem.lower_bound_of_float_variables, problem.upper_bound_of_float_variables,
                                  problem.number_of_float_variables)
         self.task = OptimizationTask(problem)

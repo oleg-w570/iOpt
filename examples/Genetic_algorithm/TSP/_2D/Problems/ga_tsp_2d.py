@@ -78,5 +78,4 @@ class GA_TSP_2D(Problem):
                         max_iter=int(self.numberOfIterations), prob_mut=mutation_prob)
         best_points, best_distance = ga_tsp.run()
         function_value.value = best_distance[0]
-        print(best_distance[0])
         return function_value

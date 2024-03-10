@@ -2,7 +2,7 @@ from typing import List
 
 from iOpt.evolvent.evolvent import Evolvent
 from iOpt.method.async_parallel_process import AsyncParallelProcess
-from iOpt.method.db_process import DBProcess
+from iOpt.method.db_process import DBProcess, DBProcessWorker
 from iOpt.method.index_method import IndexMethod
 from iOpt.method.listener import Listener
 from iOpt.method.method import Method
@@ -11,8 +11,6 @@ from iOpt.method.optim_task import OptimizationTask
 from iOpt.method.parallel_process import ParallelProcess
 from iOpt.method.process import Process
 from iOpt.method.search_data import SearchData
-from iOpt.method.search_db import SearchDB
-from iOpt.problem import Problem
 from iOpt.solver_parametrs import SolverParameters
 
 
@@ -51,7 +49,7 @@ class SolverFactory:
     def create_process(parameters: SolverParameters,
                        task: OptimizationTask,
                        evolvent: Evolvent,
-                       search_data: SearchData | SearchDB,
+                       search_data: SearchData,
                        method: Method,
                        listeners: List[Listener]) -> Process:
         """
@@ -67,8 +65,12 @@ class SolverFactory:
         :return: created process.
         """
         if isinstance(parameters.url_db, str):
-            return DBProcess(parameters=parameters, task=task, evolvent=evolvent,
-                             search_data=search_data, method=method, listeners=listeners)
+            if parameters.is_worker:
+                return DBProcessWorker(parameters=parameters, task=task, evolvent=evolvent,
+                                       search_data=search_data, method=method, listeners=listeners)
+            else:
+                return DBProcess(parameters=parameters, task=task, evolvent=evolvent,
+                                 search_data=search_data, method=method, listeners=listeners)
         elif parameters.number_of_parallel_points == 1:
             return Process(parameters=parameters, task=task, evolvent=evolvent,
                            search_data=search_data, method=method, listeners=listeners)
@@ -78,11 +80,3 @@ class SolverFactory:
         else:
             return ParallelProcess(parameters=parameters, task=task, evolvent=evolvent,
                                    search_data=search_data, method=method, listeners=listeners)
-
-    @staticmethod
-    def create_search_data(parameters: SolverParameters,
-                           problem: Problem):
-        if isinstance(parameters.url_db, str):
-            return SearchDB(parameters.url_db, problem)
-        else:
-            return SearchData(problem)

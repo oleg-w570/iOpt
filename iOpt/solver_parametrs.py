@@ -19,7 +19,9 @@ class SolverParameters:
                  async_scheme: bool = False,
                  timeout: int = -1,
                  proportion_of_global_iterations: float = 0.95,
-                 url_db: str | None = None
+                 url_db: str | None = None,
+                 task_name: str = '',
+                 is_worker: bool = False,  # temp
                  ):
         r"""
         Constructor of SolverParameters class
@@ -59,6 +61,8 @@ class SolverParameters:
         self.async_scheme = async_scheme
         self.timeout = timeout
         self.url_db = url_db
+        self.task_name = task_name
+        self.is_worker = is_worker  # temp
 
     def to_string(self) -> str:
         """
