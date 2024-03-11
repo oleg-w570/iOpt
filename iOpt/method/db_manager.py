@@ -1,14 +1,17 @@
+import logging
 from time import sleep
 from typing import Tuple, List
 
-from sqlalchemy import func, create_engine
-from sqlalchemy.exc import NoResultFound, SQLAlchemyError, MultipleResultsFound
+from sqlalchemy import func, create_engine, update, select, delete
 from sqlalchemy.orm import sessionmaker
 
 import iOpt.method.models as models
 from iOpt.method.search_data import SearchDataItem
 from iOpt.solver_parametrs import SolverParameters
 from iOpt.trial import FunctionValue, Point
+
+WAIT_TIME = 1
+MAX_ATTEMPTS = 3
 
 
 class DBManager:
@@ -30,56 +33,58 @@ class DBManager:
 
     def find_task_by_name(self, name: str) -> int:
         with self.session_maker() as session:
-            task = (
-                session.query(models.Task)
-                .filter(models.Task.name == name)
-                .one()
-            )
+            task = session.execute(
+                select(models.Task).where(models.Task.name == name)
+            ).scalar_one()
             return task.id
 
     def load_task(self, name: str) -> int:
-        max_attempts = 3
-        wait_time = 1
-        for attempt in range(max_attempts):
+        for attempt in range(MAX_ATTEMPTS):
             try:
                 return self.find_task_by_name(name)
-            except (SQLAlchemyError, NoResultFound, MultipleResultsFound) as e:
-                print(f"Attempt {attempt+1} failed with error: {e}")
-                if attempt < max_attempts - 1:
-                    sleep(wait_time)
+            except Exception:
+                logging.info(f"Attempt {attempt+1} failed with error")
+                if attempt < MAX_ATTEMPTS - 1:
+                    sleep(WAIT_TIME)
         else:
-            raise Exception(f"Failed to find record after {max_attempts} attempts")
+            raise Exception(f"Failed to find record after {MAX_ATTEMPTS} attempts")
 
     def set_task_solved(self) -> None:
         with self.session_maker() as session:
-            task = session.get(models.Task, self.task_id)
-            task.state = models.TaskState.SOLVED
+            session.execute(
+                update(models.Task)
+                .where(models.Task.id == self.task_id)
+                .values(state=models.TaskState.SOLVED)
+            )
             session.commit()
 
     def set_task_error(self) -> None:
         with self.session_maker() as session:
-            task = session.get(models.Task, self.task_id)
-            task.state = models.TaskState.ERROR
+            session.execute(
+                update(models.Task)
+                .where(models.Task.id == self.task_id)
+                .values(state=models.TaskState.ERROR)
+            )
             session.commit()
 
     def is_task_solving(self) -> bool:
         with self.session_maker() as session:
-            task = session.get(models.Task, self.task_id)
-            return task.state == models.TaskState.SOLVING
+            state = session.scalar(
+                select(models.Task.state).where(models.Task.id == self.task_id)
+            )
+            return state == models.TaskState.SOLVING
 
     def delete_task(self) -> None:
         with self.session_maker() as session:
-            task = session.get(models.Task, self.task_id)
-            session.delete(task)
+            session.execute(delete(models.Task).where(models.Task.id == self.task_id))
             session.commit()
 
     def count_not_calculated_points(self) -> int:
         with self.session_maker() as session:
-            return (
-                session.query(func.count(models.Point.id))
-                .filter(models.Point.task_id == self.task_id)
-                .filter(models.Point.state < models.PointState.CALCULATED)
-                .scalar()
+            return session.scalar(
+                select(func.count())
+                .select_from(models.Point)
+                .where(models.Point.state < models.PointState.CALCULATED)
             )
 
     def set_point_to_calculate(self, point: SearchDataItem) -> int:
@@ -107,13 +112,13 @@ class DBManager:
         self, n_func: int
     ) -> Tuple[SearchDataItem, int] | Tuple[None, None]:
         with self.session_maker() as session:
-            db_point = (
-                session.query(models.Point)
-                .filter(models.Point.task_id == self.task_id)
-                .filter(models.Point.state == models.PointState.WAITING)
-                .with_for_update()
-                .first()
-            )
+            db_point = session.scalars(
+                select(models.Point)
+                .where(models.Point.task_id == self.task_id)
+                .where(models.Point.state == models.PointState.WAITING)
+                .with_for_update(skip_locked=True)
+                .limit(1)
+            ).first()
             if db_point is None:
                 return None, None
             db_point.state = models.PointState.CALCULATING
@@ -133,45 +138,50 @@ class DBManager:
 
     def set_calculated_point(self, point: SearchDataItem, db_point_id: int) -> None:
         with self.session_maker() as session:
-            db_point = session.get(models.Point, db_point_id)
-            db_point.index = point.get_index()
-            db_point.z = point.get_z()
-            db_point.state = models.PointState.CALCULATED
-            db_point.function_values = [
-                models.FunctionValue(
-                    type=fv.type,
-                    function_id=fv.functionID,
-                    value=fv.value,
+            session.add_all(
+                [
+                    models.FunctionValue(
+                        point_id=db_point_id,
+                        type=fv.type,
+                        function_id=fv.functionID,
+                        value=fv.value,
+                    )
+                    for fv in point.function_values
+                ]
+            )
+            session.execute(
+                update(models.Point)
+                .where(models.Point.id == db_point_id)
+                .values(
+                    index=point.get_index(),
+                    z=point.get_z(),
+                    state=models.PointState.CALCULATED,
                 )
-                for fv in point.function_values
-            ]
+            )
             session.commit()
 
     def get_calculated_point(self) -> Tuple[SearchDataItem, int]:
         with self.session_maker() as session:
-            db_point = (
-                session.query(models.Point)
-                .filter(models.Point.task_id == self.task_id)
-                .filter(models.Point.state == models.PointState.CALCULATED)
-                .first()
-            )
+            db_point = session.scalars(
+                select(models.Point)
+                .where(models.Point.task_id == self.task_id)
+                .where(models.Point.state == models.PointState.CALCULATED)
+                .limit(1)
+            ).first()
             db_point.state = models.PointState.COMPLETE
             session.commit()
-
             return self._convert_db_point(db_point)
 
     def get_all_calculated_points(self) -> List[Tuple[SearchDataItem, int]]:
         with self.session_maker() as session:
-            list_db_points = (
-                session.query(models.Point)
-                .filter(models.Point.task_id == self.task_id)
-                .filter(models.Point.state == models.PointState.CALCULATED)
-                .all()
-            )
+            list_db_points = session.scalars(
+                select(models.Point)
+                .where(models.Point.task_id == self.task_id)
+                .where(models.Point.state == models.PointState.CALCULATED)
+            ).all()
             for db_point in list_db_points:
                 db_point.state = models.PointState.COMPLETE
             session.commit()
-
             return list(map(self._convert_db_point, list_db_points))
 
     @staticmethod
