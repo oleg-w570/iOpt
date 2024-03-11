@@ -16,11 +16,6 @@ class Base(DeclarativeBase):
     pass
 
 
-class TaskState(enum.Enum):
-    SOLVING = "solving"
-    SOLVED = "solved"
-
-
 class FloatVariable(Base):
     __tablename__ = "float_variables"
 
@@ -75,10 +70,17 @@ class Point(Base):
     )
 
 
+class TaskState(enum.Enum):
+    SOLVING = "solving"
+    SOLVED = "solved"
+    ERROR = "error"
+
+
 class Task(Base):
     __tablename__ = "tasks"
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[String] = mapped_column(String, unique=True)
     state: Mapped[TaskState] = mapped_column(Enum(TaskState))
 
-    points: Mapped[List["Point"]] = relationship(cascade="all, delete-orphan")
+    points: Mapped[List[Point]] = relationship(cascade="all, delete-orphan")

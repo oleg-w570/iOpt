@@ -1,6 +1,8 @@
+from time import sleep
 from typing import Tuple, List
 
 from sqlalchemy import func, create_engine
+from sqlalchemy.exc import NoResultFound, SQLAlchemyError, MultipleResultsFound
 from sqlalchemy.orm import sessionmaker
 
 import iOpt.method.models as models
@@ -12,13 +14,12 @@ from iOpt.trial import FunctionValue, Point
 class DBManager:
     def __init__(self, parameters: SolverParameters):
         self.engine = create_engine(parameters.url_db)
-        models.Base.metadata.create_all(self.engine)
         self.session_maker = sessionmaker(bind=self.engine)
-        self.task_id = (
-            self.create_task(parameters.task_name)
-            if not parameters.is_worker
-            else self.load_task(parameters.task_name)
-        )
+        if not parameters.is_worker:
+            models.Base.metadata.create_all(self.engine)
+            self.task_id = self.create_task(parameters.task_name)
+        else:
+            self.task_id = self.load_task(parameters.task_name)
 
     def create_task(self, name: str) -> int:
         with self.session_maker() as session:
@@ -27,10 +28,27 @@ class DBManager:
             session.commit()
             return task.id
 
-    def load_task(self, name: str) -> int:
+    def find_task_by_name(self, name: str) -> int:
         with self.session_maker() as session:
-            task = session.query(models.Task).filter(models.Task.name == name).one()
+            task = (
+                session.query(models.Task)
+                .filter(models.Task.name == name)
+                .one()
+            )
             return task.id
+
+    def load_task(self, name: str) -> int:
+        max_attempts = 3
+        wait_time = 1
+        for attempt in range(max_attempts):
+            try:
+                return self.find_task_by_name(name)
+            except (SQLAlchemyError, NoResultFound, MultipleResultsFound) as e:
+                print(f"Attempt {attempt+1} failed with error: {e}")
+                if attempt < max_attempts - 1:
+                    sleep(wait_time)
+        else:
+            raise Exception(f"Failed to find record after {max_attempts} attempts")
 
     def set_task_solved(self) -> None:
         with self.session_maker() as session:
@@ -38,10 +56,16 @@ class DBManager:
             task.state = models.TaskState.SOLVED
             session.commit()
 
-    def is_task_solved(self) -> bool:
+    def set_task_error(self) -> None:
         with self.session_maker() as session:
             task = session.get(models.Task, self.task_id)
-            return task.state == models.TaskState.SOLVED
+            task.state = models.TaskState.ERROR
+            session.commit()
+
+    def is_task_solving(self) -> bool:
+        with self.session_maker() as session:
+            task = session.get(models.Task, self.task_id)
+            return task.state == models.TaskState.SOLVING
 
     def delete_task(self) -> None:
         with self.session_maker() as session:
@@ -167,7 +191,9 @@ class DBManager:
         point.set_z(db_point.z)
         return point, db_point.id
 
-    def calculate_functionals_for_items(self, points: List[SearchDataItem]):
+    def calculate_functionals_for_items(
+        self, points: List[SearchDataItem]
+    ) -> List[SearchDataItem]:
         t = {}
         for point in points:
             point_id = self.set_point_to_calculate(point)
@@ -180,3 +206,4 @@ class DBManager:
             point.function_values = point_r.function_values
             point.set_z(point_r.get_z())
             point.set_index(point_r.get_index())
+        return points

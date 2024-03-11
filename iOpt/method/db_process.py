@@ -70,6 +70,7 @@ class DBProcess(Process):
                 self.do_global_iteration()
             self.db_manager.set_task_solved()
         except Exception:
+            self.db_manager.set_task_error()
             print("Exception was thrown")
             print(traceback.format_exc())
 
@@ -108,6 +109,6 @@ class DBProcessWorker(Process):
             self.db_manager.set_calculated_point(point, db_point_id)
 
     def solve(self) -> Solution:
-        while not self.db_manager.is_task_solved():
+        while self.db_manager.is_task_solving():
             self.do_global_iteration()
         return self.get_results()
