@@ -46,7 +46,7 @@ class DBProcess(Process):
         else:
             for _ in range(
                 self.parameters.number_of_parallel_points
-                - self.db_manager.count_not_calculated_points()
+                - len(self.waiting_oldpoints)
             ):
                 newpoint, oldpoint = self.method.calculate_iteration_point()
                 db_newpoint_id = self.db_manager.set_point_to_calculate(newpoint)

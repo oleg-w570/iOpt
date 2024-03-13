@@ -2,7 +2,7 @@ import logging
 from time import sleep
 from typing import Tuple, List
 
-from sqlalchemy import func, create_engine, update, select, delete
+from sqlalchemy import func, create_engine, update, select
 from sqlalchemy.orm import sessionmaker
 
 import iOpt.method.models as models
@@ -11,7 +11,7 @@ from iOpt.solver_parametrs import SolverParameters
 from iOpt.trial import FunctionValue, Point
 
 WAIT_TIME = 1
-MAX_ATTEMPTS = 3
+MAX_ATTEMPTS = 10
 
 
 class DBManager:
@@ -33,17 +33,17 @@ class DBManager:
 
     def find_task_by_name(self, name: str) -> int:
         with self.session_maker() as session:
-            task = session.execute(
-                select(models.Task).where(models.Task.name == name)
-            ).scalar_one()
-            return task.id
+            task_id = session.scalars(
+                select(models.Task.id).where(models.Task.name == name)
+            ).one()
+            return task_id
 
     def load_task(self, name: str) -> int:
         for attempt in range(MAX_ATTEMPTS):
             try:
                 return self.find_task_by_name(name)
-            except Exception:
-                logging.info(f"Attempt {attempt+1} failed with error")
+            except:
+                logging.info(f'Attempt {attempt} failed with error.')
                 if attempt < MAX_ATTEMPTS - 1:
                     sleep(WAIT_TIME)
         else:
@@ -76,7 +76,8 @@ class DBManager:
 
     def delete_task(self) -> None:
         with self.session_maker() as session:
-            session.execute(delete(models.Task).where(models.Task.id == self.task_id))
+            task = session.get(models.Task, self.task_id)
+            session.delete(task)
             session.commit()
 
     def count_not_calculated_points(self) -> int:
@@ -84,6 +85,7 @@ class DBManager:
             return session.scalar(
                 select(func.count())
                 .select_from(models.Point)
+                .where(models.Point.task_id == self.task_id)
                 .where(models.Point.state < models.PointState.CALCULATED)
             )
 
@@ -209,7 +211,7 @@ class DBManager:
             point_id = self.set_point_to_calculate(point)
             t[point_id] = point
         while self.count_not_calculated_points() > 0:
-            ...
+            pass
         points_res = self.get_all_calculated_points()
         for point_r, point_id in points_res:
             point = t[point_id]
