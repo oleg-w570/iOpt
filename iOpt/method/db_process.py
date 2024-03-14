@@ -22,9 +22,10 @@ class DBProcess(Process):
         search_data: SearchData,
         method: Method,
         listeners: List[Listener],
+        db_manager: DBManager,
     ):
         super().__init__(parameters, task, evolvent, search_data, method, listeners)
-        self.db_manager = DBManager(self.parameters)
+        self.db = db_manager
         self.waiting_oldpoints = {}
 
     def save_oldpoint(self, oldpoint: SearchDataItem, db_newpoint_id: int):
@@ -41,7 +42,7 @@ class DBProcess(Process):
         if self._first_iteration is True:
             for listener in self._listeners:
                 listener.before_method_start(self.method)
-            done_trials = self.method.first_iteration(self.db_manager)
+            done_trials = self.method.first_iteration(self.db)
             self._first_iteration = False
         else:
             for _ in range(
@@ -49,10 +50,10 @@ class DBProcess(Process):
                 - len(self.waiting_oldpoints)
             ):
                 newpoint, oldpoint = self.method.calculate_iteration_point()
-                db_newpoint_id = self.db_manager.set_point_to_calculate(newpoint)
+                db_newpoint_id = self.db.set_point_to_calculate(newpoint)
                 self.save_oldpoint(oldpoint, db_newpoint_id)
 
-            for newpoint, db_newpoint_id in self.db_manager.get_all_calculated_points():
+            for newpoint, db_newpoint_id in self.db.get_all_calculated_points():
                 oldpoint = self.find_oldpoint(db_newpoint_id)
                 self.method.update_optimum(newpoint)
                 self.method.renew_search_data(newpoint, oldpoint)
@@ -68,9 +69,9 @@ class DBProcess(Process):
         try:
             while not self.method.check_stop_condition():
                 self.do_global_iteration()
-            self.db_manager.set_task_solved()
+            self.db.set_task_solved()
         except Exception:
-            self.db_manager.set_task_error()
+            self.db.set_task_error()
             print("Exception was thrown")
             print(traceback.format_exc())
 
@@ -96,19 +97,20 @@ class DBProcessWorker(Process):
         search_data: SearchData,
         method: Method,
         listeners: List[Listener],
+        db_manager: DBManager
     ):
         super().__init__(parameters, task, evolvent, search_data, method, listeners)
-        self.db_manager = DBManager(parameters)
+        self.db = db_manager
 
     def do_global_iteration(self, number: int = 1):
-        point, db_point_id = self.db_manager.get_point_to_calculate(
+        point, db_point_id = self.db.get_point_to_calculate(
             self.method.numberOfAllFunctions
         )
         if point and db_point_id:
             self.method.calculate_functionals(point)
-            self.db_manager.set_calculated_point(point, db_point_id)
+            self.db.set_calculated_point(point, db_point_id)
 
     def solve(self) -> Solution:
-        while self.db_manager.is_task_solving():
+        while self.db.is_task_solving():
             self.do_global_iteration()
         return self.get_results()

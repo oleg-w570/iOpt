@@ -10,3 +10,4 @@ sphinxcontrib-details-directive
 autodocsumm
 pathos
 multiprocess
+sqlalchemy

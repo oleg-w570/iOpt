@@ -1,13 +1,12 @@
 import logging
-from time import sleep
 from typing import Tuple, List
 
 from sqlalchemy import func, create_engine, update, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 import iOpt.method.models as models
 from iOpt.method.search_data import SearchDataItem
-from iOpt.solver_parametrs import SolverParameters
 from iOpt.trial import FunctionValue, Point
 
 WAIT_TIME = 1
@@ -15,39 +14,42 @@ MAX_ATTEMPTS = 10
 
 
 class DBManager:
-    def __init__(self, parameters: SolverParameters):
-        self.engine = create_engine(parameters.url_db)
-        self.session_maker = sessionmaker(bind=self.engine)
-        if not parameters.is_worker:
+    def __init__(self, url_db: str):
+        self.engine = create_engine(url_db)
+        self.session_maker = sessionmaker(self.engine)
+        self.task_id = None
+        try:
             models.Base.metadata.create_all(self.engine)
-            self.task_id = self.create_task(parameters.task_name)
-        else:
-            self.task_id = self.load_task(parameters.task_name)
+        except IntegrityError:
+            logging.info("IntegrityError occurred while creating tables")
 
-    def create_task(self, name: str) -> int:
+    def set_task(self, name: str) -> bool:
+        self.task_id = self.create_task(name)
+        if self.task_id:
+            return True
+        self.task_id = self.load_task(name)
+        return False
+
+    def create_task(self, name: str):
         with self.session_maker() as session:
             task = models.Task(name=name, state=models.TaskState.SOLVING)
-            session.add(task)
-            session.commit()
+            try:
+                session.add(task)
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                logging.info(
+                    "IntegrityError occurred while inserting a record with name. "
+                    "Attempting to load the task by name."
+                )
             return task.id
 
-    def find_task_by_name(self, name: str) -> int:
+    def load_task(self, name: str):
         with self.session_maker() as session:
             task_id = session.scalars(
                 select(models.Task.id).where(models.Task.name == name)
             ).one()
             return task_id
-
-    def load_task(self, name: str) -> int:
-        for attempt in range(MAX_ATTEMPTS):
-            try:
-                return self.find_task_by_name(name)
-            except:
-                logging.info(f'Attempt {attempt} failed with error.')
-                if attempt < MAX_ATTEMPTS - 1:
-                    sleep(WAIT_TIME)
-        else:
-            raise Exception(f"Failed to find record after {MAX_ATTEMPTS} attempts")
 
     def set_task_solved(self) -> None:
         with self.session_maker() as session:

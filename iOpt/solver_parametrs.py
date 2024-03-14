@@ -21,7 +21,7 @@ class SolverParameters:
                  proportion_of_global_iterations: float = 0.95,
                  url_db: str | None = None,
                  task_name: str = '',
-                 is_worker: bool = False,  # temp
+                 main_process: bool | None = None,
                  ):
         r"""
         Constructor of SolverParameters class
@@ -62,7 +62,7 @@ class SolverParameters:
         self.timeout = timeout
         self.url_db = url_db
         self.task_name = task_name
-        self.is_worker = is_worker  # temp
+        self.main_process = main_process
 
     def to_string(self) -> str:
         """
