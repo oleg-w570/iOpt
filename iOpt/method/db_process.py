@@ -2,6 +2,8 @@ import traceback
 from datetime import datetime
 from typing import List
 
+from sqlalchemy.exc import IntegrityError
+
 from iOpt.evolvent.evolvent import Evolvent
 from iOpt.method.db_manager import DBManager
 from iOpt.method.listener import Listener
@@ -69,9 +71,7 @@ class DBProcess(Process):
         try:
             while not self.method.check_stop_condition():
                 self.do_global_iteration()
-            self.db.set_task_solved()
         except Exception:
-            self.db.set_task_error()
             print("Exception was thrown")
             print(traceback.format_exc())
 
@@ -84,6 +84,8 @@ class DBProcess(Process):
         for listener in self._listeners:
             status = self.method.check_stop_condition()
             listener.on_method_stop(self.search_data, self.get_results(), status)
+
+        self.db.delete_task()
 
         return result
 
@@ -111,6 +113,9 @@ class DBProcessWorker(Process):
             self.db.set_calculated_point(point, db_point_id)
 
     def solve(self) -> Solution:
-        while self.db.is_task_solving():
-            self.do_global_iteration()
+        while True:
+            try:
+                self.do_global_iteration()
+            except IntegrityError:
+                break
         return self.get_results()

@@ -21,7 +21,7 @@ class DBManager:
         try:
             models.Base.metadata.create_all(self.engine)
         except IntegrityError:
-            logging.info("IntegrityError occurred while creating tables")
+            pass
 
     def set_task(self, name: str) -> bool:
         self.task_id = self.create_task(name)
@@ -38,10 +38,6 @@ class DBManager:
                 session.commit()
             except IntegrityError:
                 session.rollback()
-                logging.info(
-                    "IntegrityError occurred while inserting a record with name. "
-                    "Attempting to load the task by name."
-                )
             return task.id
 
     def load_task(self, name: str):
@@ -50,31 +46,6 @@ class DBManager:
                 select(models.Task.id).where(models.Task.name == name)
             ).one()
             return task_id
-
-    def set_task_solved(self) -> None:
-        with self.session_maker() as session:
-            session.execute(
-                update(models.Task)
-                .where(models.Task.id == self.task_id)
-                .values(state=models.TaskState.SOLVED)
-            )
-            session.commit()
-
-    def set_task_error(self) -> None:
-        with self.session_maker() as session:
-            session.execute(
-                update(models.Task)
-                .where(models.Task.id == self.task_id)
-                .values(state=models.TaskState.ERROR)
-            )
-            session.commit()
-
-    def is_task_solving(self) -> bool:
-        with self.session_maker() as session:
-            state = session.scalar(
-                select(models.Task.state).where(models.Task.id == self.task_id)
-            )
-            return state == models.TaskState.SOLVING
 
     def delete_task(self) -> None:
         with self.session_maker() as session:
