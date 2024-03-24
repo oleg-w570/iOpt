@@ -9,9 +9,6 @@ import iOpt.method.models as models
 from iOpt.method.search_data import SearchDataItem
 from iOpt.trial import FunctionValue, Point
 
-WAIT_TIME = 1
-MAX_ATTEMPTS = 10
-
 
 class DBManager:
     def __init__(self, url_db: str):
@@ -21,7 +18,7 @@ class DBManager:
         try:
             models.Base.metadata.create_all(self.engine)
         except IntegrityError:
-            logging.info("IntegrityError occurred while creating tables")
+            pass
 
     def set_task(self, name: str) -> bool:
         self.task_id = self.create_task(name)
@@ -38,10 +35,6 @@ class DBManager:
                 session.commit()
             except IntegrityError:
                 session.rollback()
-                logging.info(
-                    "IntegrityError occurred while inserting a record with name. "
-                    "Attempting to load the task by name."
-                )
             return task.id
 
     def load_task(self, name: str):
