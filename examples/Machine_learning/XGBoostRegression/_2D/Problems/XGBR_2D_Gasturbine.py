@@ -57,5 +57,5 @@ class XGBR_2d_Gasturbine(Problem):
         """
         learning_rate, gamma = point.float_variables[0], point.float_variables[1]
         regr = xgb.XGBRegressor(learning_rate=learning_rate, gamma=gamma)
-        function_value.value = -cross_val_score(regr, self.x, self.y, scoring='r2').mean()
+        function_value.value = -cross_val_score(regr, self.x, self.y, scoring='r2', cv=5).mean()
         return function_value

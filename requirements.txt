@@ -11,3 +11,8 @@ autodocsumm
 pathos
 multiprocess
 sqlalchemy
+dash
+dash-bootstrap-components
+plotly
+pandas
+scipy
