@@ -19,6 +19,9 @@ class SolverParameters:
                  async_scheme: bool = False,
                  timeout: int = -1,
                  proportion_of_global_iterations: float = 0.95,
+                 url_db: str | None = None,
+                 task_name: str = '',
+                 main_process: bool | None = None,
                  start_lambdas: list = [],
                  number_of_lambdas: int = 10,
                  is_scaling: bool = False
@@ -60,6 +63,9 @@ class SolverParameters:
         self.number_of_parallel_points = number_of_parallel_points
         self.async_scheme = async_scheme
         self.timeout = timeout
+        self.url_db = url_db
+        self.task_name = task_name
+        self.main_process = main_process
 
 
         self.start_lambdas = start_lambdas

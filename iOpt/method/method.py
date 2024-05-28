@@ -112,7 +112,7 @@ class Method:
 
             for i in range(number_of_point):
                 x = h * (i + 1)
-                y = Point(self.evolvent.get_image(x), None)
+                y = Point(self.evolvent.get_image(x))
                 item = SearchDataItem(y, x,
                                       function_values=[FunctionValue()] * self.numberOfAllFunctions)
                 if x < xstart_point < h * (i + 2):
@@ -131,7 +131,7 @@ class Method:
 
             for i in range(number_of_point):
                 x = h * (i + 1)
-                y = Point(self.evolvent.get_image(x), None)
+                y = Point(self.evolvent.get_image(x))
                 item = SearchDataItem(y, x,
                                       function_values=[FunctionValue()] * self.numberOfAllFunctions)
                 items.append(item)

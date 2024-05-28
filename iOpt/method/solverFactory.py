@@ -2,7 +2,8 @@ from typing import List
 
 from iOpt.evolvent.evolvent import Evolvent
 from iOpt.method.async_parallel_process import AsyncParallelProcess
-
+from iOpt.method.db_manager import DBManager
+from iOpt.method.db_process import DBProcess, DBProcessWorker
 from iOpt.method.calculator import Calculator
 from iOpt.method.default_calculator import DefaultCalculator
 from iOpt.method.index_method import IndexMethod
@@ -114,7 +115,10 @@ class SolverFactory:
 
         :return: created process.
         """
-        if parameters.number_of_parallel_points == 1:
+        if isinstance(parameters.url_db, str):
+            return SolverFactory.create_db_process(parameters=parameters, task=task, evolvent=evolvent,
+                                                   search_data=search_data, method=method, listeners=listeners)
+        elif parameters.number_of_parallel_points == 1:
             return Process(parameters=parameters, task=task, evolvent=evolvent,
                            search_data=search_data, method=method, listeners=listeners, calculator=calculator)
         elif parameters.async_scheme:
@@ -123,3 +127,21 @@ class SolverFactory:
         else:
             return ParallelProcess(parameters=parameters, task=task, evolvent=evolvent,
                                    search_data=search_data, method=method, listeners=listeners, calculator=calculator)
+
+    @staticmethod
+    def create_db_process(parameters: SolverParameters,
+                          task: OptimizationTask,
+                          evolvent: Evolvent,
+                          search_data: SearchData,
+                          method: Method,
+                          listeners: List[Listener]):
+        db = DBManager(parameters.url_db)
+        is_creator = db.set_task(parameters.task_name)
+        if parameters.main_process is None:
+            parameters.main_process = is_creator
+        if parameters.main_process:
+            return DBProcess(parameters=parameters, task=task, evolvent=evolvent,
+                             search_data=search_data, method=method, listeners=listeners, db_manager=db)
+        else:
+            return DBProcessWorker(parameters=parameters, task=task, evolvent=evolvent,
+                                   search_data=search_data, method=method, listeners=listeners, db_manager=db)

@@ -10,6 +10,7 @@ sphinxcontrib-details-directive
 autodocsumm
 pathos
 multiprocess
+sqlalchemy
 dash
 dash-bootstrap-components
 plotly
