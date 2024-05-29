@@ -4,6 +4,7 @@ from typing import List
 
 from iOpt.evolvent.evolvent import Evolvent
 from iOpt.method.db_manager import DBManager
+from iOpt.method.icriterion_evaluate_method import ICriterionEvaluateMethod
 from iOpt.method.listener import Listener
 from iOpt.method.method import Method
 from iOpt.method.optim_task import OptimizationTask
@@ -42,7 +43,7 @@ class DBProcess(Process):
         if self._first_iteration is True:
             for listener in self._listeners:
                 listener.before_method_start(self.method)
-            done_trials = self.method.first_iteration(self.db)
+            done_trials = self.method.first_iteration()
             self._first_iteration = False
         else:
             for _ in range(
@@ -97,17 +98,19 @@ class DBProcessWorker(Process):
         search_data: SearchData,
         method: Method,
         listeners: List[Listener],
-        db_manager: DBManager
+        db_manager: DBManager,
+        evaluate_method: ICriterionEvaluateMethod,
     ):
         super().__init__(parameters, task, evolvent, search_data, method, listeners)
         self.db = db_manager
+        self.evaluate_method = evaluate_method
 
     def do_global_iteration(self, number: int = 1):
         point, db_point_id = self.db.get_point_to_calculate(
             self.method.numberOfAllFunctions
         )
         if point and db_point_id:
-            self.method.calculate_functionals(point)
+            self.evaluate_method.calculate_functionals(point)
             self.db.set_calculated_point(point, db_point_id)
 
     def solve(self) -> Solution:

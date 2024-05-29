@@ -64,7 +64,9 @@ class SolverFactory:
     def create_calculator(task: OptimizationTask,
                           parameters: SolverParameters):
         index_method_evaluate = SolverFactory.create_evaluate_method(task)
-        if parameters.number_of_parallel_points > 1:
+        if isinstance(parameters.url_db, str):
+            return DBManager(parameters.url_db)
+        elif parameters.number_of_parallel_points > 1:
             return Calculator(index_method_evaluate, parameters)
         else:
             return DefaultCalculator(index_method_evaluate, parameters)
@@ -117,7 +119,8 @@ class SolverFactory:
         """
         if isinstance(parameters.url_db, str):
             return SolverFactory.create_db_process(parameters=parameters, task=task, evolvent=evolvent,
-                                                   search_data=search_data, method=method, listeners=listeners)
+                                                   search_data=search_data, method=method, listeners=listeners,
+                                                   db_manager=calculator)
         elif parameters.number_of_parallel_points == 1:
             return Process(parameters=parameters, task=task, evolvent=evolvent,
                            search_data=search_data, method=method, listeners=listeners, calculator=calculator)
@@ -134,14 +137,15 @@ class SolverFactory:
                           evolvent: Evolvent,
                           search_data: SearchData,
                           method: Method,
-                          listeners: List[Listener]):
-        db = DBManager(parameters.url_db)
-        is_creator = db.set_task(parameters.task_name)
+                          listeners: List[Listener],
+                          db_manager: DBManager):
+        is_creator = db_manager.set_task(parameters.task_name)
         if parameters.main_process is None:
             parameters.main_process = is_creator
         if parameters.main_process:
             return DBProcess(parameters=parameters, task=task, evolvent=evolvent,
-                             search_data=search_data, method=method, listeners=listeners, db_manager=db)
+                             search_data=search_data, method=method, listeners=listeners, db_manager=db_manager)
         else:
             return DBProcessWorker(parameters=parameters, task=task, evolvent=evolvent,
-                                   search_data=search_data, method=method, listeners=listeners, db_manager=db)
+                                   search_data=search_data, method=method, listeners=listeners, db_manager=db_manager,
+                                   evaluate_method=SolverFactory.create_evaluate_method(task))

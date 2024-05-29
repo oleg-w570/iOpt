@@ -66,8 +66,6 @@ class SolverParameters:
         self.url_db = url_db
         self.task_name = task_name
         self.main_process = main_process
-
-
         self.start_lambdas = start_lambdas
         self.number_of_lambdas = number_of_lambdas
         self.is_scaling = is_scaling
